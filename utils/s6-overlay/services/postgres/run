@@ -6,4 +6,4 @@
 set -ea
    
 # start postgres with specified data directory, copying stderr onto stdout
-exec s6-setuidgid postgres /usr/lib/postgresql/13/bin/postgres -D /datadir/postgresql/data 2>&1
+exec s6-setuidgid postgres /usr/lib/postgresql/13/bin/postgres -c random_page_cost=1.0 -c shared_preload_libraries=pg_stat_statements -D /datadir/postgresql/data 2>&1

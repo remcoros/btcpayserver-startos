@@ -1,4 +1,4 @@
-FROM nicolasdorier/nbxplorer:2.5.5 as nbx-builder
+FROM nicolasdorier/nbxplorer:2.5.12 as nbx-builder
 
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0-bookworm-slim AS actions-builder
 ARG TARGETARCH
@@ -8,7 +8,7 @@ RUN dotnet restore "utils/actions/actions.csproj" -a $TARGETARCH
 WORKDIR "/actions"
 RUN dotnet build "utils/actions/actions.csproj" -c Release -a $TARGETARCH -o /actions/build
 
-FROM btcpayserver/btcpayserver:1.13.3
+FROM btcpayserver/btcpayserver:2.0.3
 
 COPY --from=nbx-builder "/app" /nbxplorer
 COPY --from=actions-builder "/actions/build" /actions
@@ -19,17 +19,24 @@ ARG PLATFORM
 ARG ARCH
 
 # install package dependencies
-RUN apt-get update && \
-  apt-get install -y sqlite3 libsqlite3-0 curl locales jq bc wget procps postgresql-common xz-utils nginx vim && \
+RUN \
+  DEBIAN_FRONTEND=noninteractive && \
+  apt-get update && apt-get install -y sqlite3 libsqlite3-0 curl locales jq bc wget procps postgresql-common xz-utils nginx vim && \
   curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc && \
   sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" > /etc/apt/sources.list.d/pgdg.list' && \
   apt-get update && apt-get install -y postgresql-13 && \
   wget https://github.com/mikefarah/yq/releases/download/v4.6.3/yq_linux_${PLATFORM}.tar.gz -O - |\
-  tar xz && mv yq_linux_${PLATFORM} /usr/bin/yq
+  tar xz && mv yq_linux_${PLATFORM} /usr/bin/yq && \
+  apt-get autoclean && \
+  rm -rf \
+    /config/.cache \
+    /var/lib/apt/lists/* \
+    /var/tmp/* \
+    /tmp/*
 
 # install S6 overlay for proces mgmt
 # https://github.com/just-containers/s6-overlay
-ARG S6_OVERLAY_VERSION=3.1.2.1
+ARG S6_OVERLAY_VERSION=3.2.0.2
 #  needed to run s6-overlay
 ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /tmp
 # extract the necessary binaries from the s6 ecosystem
